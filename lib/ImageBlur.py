@@ -3,6 +3,7 @@ import cv2
 import math
 
 class ImageBlur:
+    MIN_MODEL_CONF = 0.6 # minimum detection confidence
     def __init__(self) -> None:
         self.__model = yolov5.load('./model/best.pt')
         self.__model.conf = 0.25  # NMS confidence threshold
@@ -16,13 +17,15 @@ class ImageBlur:
         predictions = results.pred[0]
         scores = predictions[:, 4]
         boxes = predictions[:, :4] # x1, y1, x2, y2
-
-        # TODO make the code compatible with mutliple license plate in the same picture
-        if len(boxes) == 0 or scores[0] < 0.6:
-            raise Exception('no licence plate detected')
         
-        box = [math.floor(e) for e in boxes[0]]
         image = cv2.imread(srcPath)
-        plate = image[box[1]:box[3], box[0]:box[2]]
-        image[box[1]:box[3], box[0]:box[2]] = cv2.blur(plate, (55, 55))
+
+        for i in range(len(boxes)):
+            # skip this detection if we are not sure this is a license plate
+            if scores[i] < ImageBlur.MIN_MODEL_CONF:
+                continue
+            box = [math.floor(e) for e in boxes[i]]
+            plate = image[box[1]:box[3], box[0]:box[2]]
+            image[box[1]:box[3], box[0]:box[2]] = cv2.blur(plate, (55, 55))
+
         cv2.imwrite(dstPath, image)
